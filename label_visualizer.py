@@ -70,13 +70,13 @@ if __name__ == '__main__':
     parser.add_argument('--dest', type=str, default='results', help='directory to save results')
     parser.add_argument('--device', type=str, default='auto', help='device to use (auto, cpu, cuda)')
     args = parser.parse_args()
+    print(args)
 
     # Device 설정
     if args.device == 'auto':
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     else:
         device = torch.device(args.device)
-    print(args.src)
 
     # source 폴더에서 데이터 경로 로드
     assert os.path.exists(args.src), 'src is not exists'
@@ -94,17 +94,23 @@ if __name__ == '__main__':
         images.sort()
         labels.sort()
 
+    # 라벨의 클래스 구성 정보 저장
+    label_class_ids = []
+
     color_mixed_label_dir = os.path.join(args.dest, 'mix')
     colored_label_dir = os.path.join(args.dest, 'color')
     os.makedirs(color_mixed_label_dir, exist_ok=True)
     os.makedirs(colored_label_dir, exist_ok=True)
-    for image_path, label_path in tqdm.tqdm(zip(images, labels), total=len(images)):
+    for image_path, label_path in tqdm.tqdm(zip(images, labels), 'Process', total=len(images)):
         assert os.path.exists(image_path), f'image is not exists: {image_path}'
         assert os.path.exists(label_path), f'label is not exists: {label_path}'
 
         # 이미지 로드
         image = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB).to(device)
         label = torch.as_tensor(np.array(Image.open(label_path).convert('L')), device=device)
+
+        label_class_ids += label.unique().cpu().tolist()
+
         # Issue: 16-bit grayscale labels are not readable
         # label = torchvision.io.read_image(label_path, torchvision.io.ImageReadMode.GRAY).to(device).squeeze()
 
@@ -116,3 +122,5 @@ if __name__ == '__main__':
         file_name = os.path.basename(label_path)
         torchvision.io.write_png(color_mixed_label.cpu(), os.path.join(color_mixed_label_dir, file_name))
         torchvision.io.write_png(colored_label.cpu(), os.path.join(colored_label_dir, file_name))
+
+    print(f'라벨의 클래스 구성 정보: {torch.tensor(label_class_ids).unique().tolist()}')
