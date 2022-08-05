@@ -67,7 +67,7 @@ def draw_segmentation_mask(image: Tensor, mask: Tensor, colors: list, alpha=0.4,
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--src', type=str, default='0031', help='Directory where source data is stored')
-    parser.add_argument('--dest', type=str, default='results', help='directory to store results')
+    parser.add_argument('--dest', type=str, default='results', help='directory to save results')
     parser.add_argument('--device', type=str, default='auto', help='device to use (auto, cpu, cuda)')
     args = parser.parse_args()
 
@@ -94,18 +94,25 @@ if __name__ == '__main__':
         images.sort()
         labels.sort()
 
-    os.makedirs(args.dest, exist_ok=True)
+    color_mixed_label_dir = os.path.join(args.dest, 'mix')
+    colored_label_dir = os.path.join(args.dest, 'color')
+    os.makedirs(color_mixed_label_dir, exist_ok=True)
+    os.makedirs(colored_label_dir, exist_ok=True)
     for image_path, label_path in tqdm.tqdm(zip(images, labels), total=len(images)):
+        assert os.path.exists(image_path), f'image is not exists: {image_path}'
+        assert os.path.exists(label_path), f'label is not exists: {label_path}'
+
         # 이미지 로드
         image = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB).to(device)
         label = torch.as_tensor(np.array(Image.open(label_path).convert('L')), device=device)
         # Issue: 16-bit grayscale labels are not readable
-        # label = torchvision.io.read_image(label_path, torchvision.io.ImageReadMode.GRAY).to(device)
-        # label.squeeze_()
+        # label = torchvision.io.read_image(label_path, torchvision.io.ImageReadMode.GRAY).to(device).squeeze()
 
-        # 라벨 데이터로 색칠
-        colored_label = draw_segmentation_mask(image, label, colors)
+        # 라벨 데이터로 색칠 (혼합 라벨, 색칠 라벨)
+        color_mixed_label = draw_segmentation_mask(image, label, colors)
+        colored_label = draw_segmentation_mask(image, label, colors, alpha=1)
 
         # 색칠한 결과 저장
         file_name = os.path.basename(label_path)
-        torchvision.io.write_png(colored_label.cpu(), os.path.join(args.dest, file_name))
+        torchvision.io.write_png(color_mixed_label.cpu(), os.path.join(color_mixed_label_dir, file_name))
+        torchvision.io.write_png(colored_label.cpu(), os.path.join(colored_label_dir, file_name))
