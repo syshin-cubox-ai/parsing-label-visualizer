@@ -1,5 +1,6 @@
 .idea/
 *.jpg
+*.json
 *.png
 
 # Byte-compiled / optimized / DLL files
