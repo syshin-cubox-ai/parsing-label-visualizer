@@ -2,6 +2,7 @@ import argparse
 import glob
 import os
 from collections import namedtuple
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -35,7 +36,7 @@ classes = [
 colors = [cls.color for cls in classes]
 
 
-def draw_segmentation_mask(image: Tensor, mask: Tensor, colors: list, alpha=0.4, gamma=20) -> Tensor:
+def draw_segmentation_mask(image: Tensor, mask: Tensor, colors: list, alpha=0.4, gamma=20) -> Tuple[Tensor, Tensor]:
     assert image.dtype == torch.uint8, f'The images dtype must be uint8, got {image.dtype}'
     assert image.dim() == 3, 'The images must be of shape (C, H, W)'
     assert image.size()[0] == 3, 'Pass RGB images. Other Image formats are not supported'
@@ -56,18 +57,15 @@ def draw_segmentation_mask(image: Tensor, mask: Tensor, colors: list, alpha=0.4,
         g[mask == i] = color[1]
         b[mask == i] = color[2]
 
-    if alpha == 1:
-        return colored_mask
-    else:
-        alpha_colored_mask = image * (1 - alpha) + colored_mask * alpha + gamma
-        alpha_colored_mask = alpha_colored_mask.clamp(0, 255).to(torch.uint8)
-        return alpha_colored_mask
+    alpha_colored_mask = image * (1 - alpha) + colored_mask * alpha + gamma
+    alpha_colored_mask = alpha_colored_mask.clamp(0, 255).to(torch.uint8)
+    return alpha_colored_mask, colored_mask
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--src', type=str, default='0031', help='Directory where source data is stored')
-    parser.add_argument('--dest', type=str, default='results', help='directory to save results')
+    parser.add_argument('--dst', type=str, default='results', help='directory to save results')
     parser.add_argument('--device', type=str, default='auto', help='device to use (auto, cpu, cuda)')
     args = parser.parse_args()
     print(args)
@@ -95,10 +93,10 @@ if __name__ == '__main__':
         labels.sort()
 
     # 라벨의 클래스 구성 정보 저장
-    label_class_ids = []
+    label_class_ids = torch.zeros(0, dtype=torch.int32, device=device)
 
-    color_mixed_label_dir = os.path.join(args.dest, 'mix')
-    colored_label_dir = os.path.join(args.dest, 'color')
+    color_mixed_label_dir = os.path.join(args.dst, 'mix')
+    colored_label_dir = os.path.join(args.dst, 'color')
     os.makedirs(color_mixed_label_dir, exist_ok=True)
     os.makedirs(colored_label_dir, exist_ok=True)
     for image_path, label_path in tqdm.tqdm(zip(images, labels), 'Process', total=len(images)):
@@ -108,19 +106,19 @@ if __name__ == '__main__':
         # 이미지 로드
         image = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB).to(device)
         label = torch.as_tensor(np.array(Image.open(label_path).convert('L')), device=device)
-
-        label_class_ids += label.unique().cpu().tolist()
-
         # Issue: 16-bit grayscale labels are not readable
         # label = torchvision.io.read_image(label_path, torchvision.io.ImageReadMode.GRAY).to(device).squeeze()
 
+        # 라벨의 클래스 구성 정보 모음
+        label_class_ids = torch.cat((label_class_ids, label.unique()))
+
         # 라벨 데이터로 색칠 (혼합 라벨, 색칠 라벨)
-        color_mixed_label = draw_segmentation_mask(image, label, colors)
-        colored_label = draw_segmentation_mask(image, label, colors, alpha=1)
+        color_mixed_label, colored_label = draw_segmentation_mask(image, label, colors)
 
         # 색칠한 결과 저장
         file_name = os.path.basename(label_path)
         torchvision.io.write_png(color_mixed_label.cpu(), os.path.join(color_mixed_label_dir, file_name))
         torchvision.io.write_png(colored_label.cpu(), os.path.join(colored_label_dir, file_name))
 
-    print(f'라벨의 클래스 구성 정보: {torch.tensor(label_class_ids).unique().tolist()}')
+    label_class_ids = label_class_ids.unique().tolist()
+    print(f'라벨의 클래스 구성 정보({len(label_class_ids)}개): {label_class_ids}')
