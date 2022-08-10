@@ -100,8 +100,8 @@ if __name__ == '__main__':
     os.makedirs(color_mixed_label_dir, exist_ok=True)
     os.makedirs(colored_label_dir, exist_ok=True)
     for image_path, label_path in tqdm.tqdm(zip(images, labels), 'Process', total=len(images)):
-        assert os.path.exists(image_path), f'image is not exists: {image_path}'
-        assert os.path.exists(label_path), f'label is not exists: {label_path}'
+        assert os.path.exists(image_path), f'source image is not exists: {image_path}'
+        assert os.path.exists(label_path), f'label image is not exists: {label_path}'
 
         # 이미지 로드
         image = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB).to(device)
