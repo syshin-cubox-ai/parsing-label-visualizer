@@ -1,7 +1,7 @@
 import argparse
+import collections
 import glob
 import os
-from collections import namedtuple
 from typing import Tuple
 
 import cv2
@@ -10,7 +10,7 @@ import torchvision
 import tqdm
 from torch import Tensor
 
-CelebAMaskHQClass = namedtuple('CelebAMaskHQClass', ['name', 'id', 'color'])
+CelebAMaskHQClass = collections.namedtuple('CelebAMaskHQClass', ['name', 'id', 'color'])
 classes = [
     CelebAMaskHQClass('background', 0, (17, 17, 17)),
     CelebAMaskHQClass('skin', 1, (255, 178, 102)),
