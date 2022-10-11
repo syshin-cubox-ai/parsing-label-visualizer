@@ -4,11 +4,10 @@ import os
 from collections import namedtuple
 from typing import Tuple
 
-import numpy as np
+import cv2
 import torch
 import torchvision
 import tqdm
-from PIL import Image
 from torch import Tensor
 
 CelebAMaskHQClass = namedtuple('CelebAMaskHQClass', ['name', 'id', 'color'])
@@ -104,11 +103,9 @@ if __name__ == '__main__':
         assert os.path.exists(label_path), f'label image is not exists: {label_path}'
 
         # 이미지 로드
-        image = torch.as_tensor(np.array(Image.open(image_path).convert('RGB')), device=device).permute(2, 0, 1)
-        label = torch.as_tensor(np.array(Image.open(label_path).convert('L')), device=device)
-        # Issue: 48-bit rgb image and 16-bit grayscale labels are not readable
-        # image = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB).to(device)
-        # label = torchvision.io.read_image(label_path, torchvision.io.ImageReadMode.GRAY).to(device).squeeze()
+        image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
+        image = torch.as_tensor(image, device=device).permute((2, 0, 1))
+        label = torch.as_tensor(cv2.imread(label_path, cv2.IMREAD_GRAYSCALE), device=device)
 
         # 라벨의 클래스 구성 정보 모음
         label_class_ids = torch.cat((label_class_ids, label.unique()))
