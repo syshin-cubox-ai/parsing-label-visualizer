@@ -104,9 +104,10 @@ if __name__ == '__main__':
         assert os.path.exists(label_path), f'label image is not exists: {label_path}'
 
         # 이미지 로드
-        image = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB).to(device)
+        image = torch.as_tensor(np.array(Image.open(image_path).convert('RGB')), device=device).permute(2, 0, 1)
         label = torch.as_tensor(np.array(Image.open(label_path).convert('L')), device=device)
-        # Issue: 16-bit grayscale labels are not readable
+        # Issue: 48-bit rgb image and 16-bit grayscale labels are not readable
+        # image = torchvision.io.read_image(image_path, torchvision.io.ImageReadMode.RGB).to(device)
         # label = torchvision.io.read_image(label_path, torchvision.io.ImageReadMode.GRAY).to(device).squeeze()
 
         # 라벨의 클래스 구성 정보 모음
