@@ -5,6 +5,7 @@ import os
 from typing import Tuple
 
 import cv2
+import numpy as np
 import torch
 import torchvision
 import tqdm
@@ -99,9 +100,12 @@ if __name__ == '__main__':
         assert os.path.exists(label_path), f'label image is not exists: {label_path}'
 
         # 이미지 로드
-        img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+        img = cv2.cvtColor(cv2.imread(img_path, cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
         img = torch.as_tensor(img, device=device).permute((2, 0, 1))
-        label = torch.as_tensor(cv2.imread(label_path, cv2.IMREAD_GRAYSCALE), device=device)
+        label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED).clip(0, 255).astype(np.uint8)
+        label = torch.as_tensor(label, device=device)
+        if label.shape[-1] == 3:
+            label = label.permute((2, 0, 1))[0]
 
         # 라벨의 클래스 구성 정보 모음
         label_class_ids = torch.cat((label_class_ids, label.unique()))
