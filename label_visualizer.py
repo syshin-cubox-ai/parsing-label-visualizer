@@ -63,8 +63,8 @@ def draw_segmentation_mask(image: Tensor, mask: Tensor, colors: list, alpha=0.4,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--src', type=str, default='0031', help='Directory where source data is stored')
-    parser.add_argument('--dst', type=str, default='results', help='directory to save results')
+    parser.add_argument('--src', type=str, default='sample', help='Directory where source data is stored')
+    parser.add_argument('--dst', type=str, default='result', help='directory to save results')
     parser.add_argument('--device', type=str, default='auto', help='device to use (auto, cpu, cuda)')
     args = parser.parse_args()
     print(args)
@@ -78,18 +78,14 @@ if __name__ == '__main__':
     # source 폴더에서 데이터 경로 로드
     assert os.path.exists(args.src), 'src is not exists'
     assert os.path.isdir(args.src), 'src must be a directory'
-    labels = glob.glob(os.path.join(args.src, '*_grayscale.png'))
-    images = [i.replace('_grayscale.png', '.png') for i in labels]
-    assert len(images) > 0 and len(labels) > 0, 'No file in src'
-    assert len(images) == len(labels)
-
-    # 정렬
-    try:
-        images.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
-        labels.sort(key=lambda x: int(os.path.splitext(os.path.basename(x))[0]))
-    except ValueError:
-        images.sort()
-        labels.sort()
+    imgs = glob.glob(os.path.join(args.src, 'imgs', '**'), recursive=True)
+    labels = glob.glob(os.path.join(args.src, 'labels', '**'), recursive=True)
+    imgs = [i for i in imgs if os.path.splitext(i)[1].lower() == '.png']
+    labels = [i for i in labels if os.path.splitext(i)[1].lower() == '.png']
+    assert len(imgs) > 0 and len(labels) > 0, 'No file in src'
+    assert len(imgs) == len(labels), 'The number of images and label data does not match.'
+    imgs.sort()
+    labels.sort()
 
     # 라벨의 클래스 구성 정보 저장
     label_class_ids = torch.zeros(0, dtype=torch.int32, device=device)
@@ -98,20 +94,20 @@ if __name__ == '__main__':
     colored_label_dir = os.path.join(args.dst, 'color')
     os.makedirs(color_mixed_label_dir, exist_ok=True)
     os.makedirs(colored_label_dir, exist_ok=True)
-    for image_path, label_path in tqdm.tqdm(zip(images, labels), 'Process', total=len(images)):
-        assert os.path.exists(image_path), f'source image is not exists: {image_path}'
+    for img_path, label_path in tqdm.tqdm(zip(imgs, labels), 'Process', total=len(imgs)):
+        assert os.path.exists(img_path), f'source image is not exists: {img_path}'
         assert os.path.exists(label_path), f'label image is not exists: {label_path}'
 
         # 이미지 로드
-        image = cv2.cvtColor(cv2.imread(image_path), cv2.COLOR_BGR2RGB)
-        image = torch.as_tensor(image, device=device).permute((2, 0, 1))
+        img = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_BGR2RGB)
+        img = torch.as_tensor(img, device=device).permute((2, 0, 1))
         label = torch.as_tensor(cv2.imread(label_path, cv2.IMREAD_GRAYSCALE), device=device)
 
         # 라벨의 클래스 구성 정보 모음
         label_class_ids = torch.cat((label_class_ids, label.unique()))
 
         # 라벨 데이터로 색칠 (혼합 라벨, 색칠 라벨)
-        color_mixed_label, colored_label = draw_segmentation_mask(image, label, colors)
+        color_mixed_label, colored_label = draw_segmentation_mask(img, label, colors)
 
         # 색칠한 결과 저장
         file_name = os.path.basename(label_path)
