@@ -10,6 +10,7 @@ import torch
 import torchvision
 import tqdm
 from torch import Tensor
+from PIL import Image
 
 CelebAMaskHQClass = collections.namedtuple('CelebAMaskHQClass', ['name', 'id', 'color'])
 classes = [
@@ -34,6 +35,24 @@ classes = [
     CelebAMaskHQClass('hat', 18, (255, 255, 0)),
 ]
 colors = [cls.color for cls in classes]
+
+
+def exif_transpose(image_path: str):
+    image = Image.open(image_path)
+    exif = image.getexif()
+    orientation = exif.get(0x0112, 1)  # default 1
+    if orientation > 1:
+        method = {
+            2: Image.FLIP_LEFT_RIGHT,
+            3: Image.ROTATE_180,
+            4: Image.FLIP_TOP_BOTTOM,
+            5: Image.TRANSPOSE,
+            6: Image.ROTATE_270,
+            7: Image.TRANSVERSE,
+            8: Image.ROTATE_90}.get(orientation)
+    else:
+        method = None
+    return method
 
 
 def draw_segmentation_mask(image: Tensor, mask: Tensor, colors: list, alpha=0.4, gamma=20) -> Tuple[Tensor, Tensor]:
@@ -81,7 +100,7 @@ if __name__ == '__main__':
     assert os.path.isdir(args.src), 'src must be a directory'
     imgs = glob.glob(os.path.join(args.src, 'imgs', '**'), recursive=True)
     labels = glob.glob(os.path.join(args.src, 'labels', '**'), recursive=True)
-    imgs = [i for i in imgs if os.path.splitext(i)[1].lower() == '.png']
+    imgs = [i for i in imgs if os.path.splitext(i)[1].lower() == '.jpg']
     labels = [i for i in labels if os.path.splitext(i)[1].lower() == '.png']
     assert len(imgs) > 0 and len(labels) > 0, 'No file in src'
     assert len(imgs) == len(labels), 'The number of images and label data does not match.'
@@ -100,7 +119,7 @@ if __name__ == '__main__':
         assert os.path.exists(label_path), f'label image is not exists: {label_path}'
 
         # 이미지 로드
-        img = cv2.cvtColor(cv2.imread(img_path, cv2.IMREAD_UNCHANGED), cv2.COLOR_BGR2RGB)
+        img = cv2.cvtColor(cv2.imread(img_path, cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
         img = torch.as_tensor(img, device=device).permute((2, 0, 1))
         label = cv2.imread(label_path, cv2.IMREAD_UNCHANGED).clip(0, 255).astype(np.uint8)
         label = torch.as_tensor(label, device=device)
